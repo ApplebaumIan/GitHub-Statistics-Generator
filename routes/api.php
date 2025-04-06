@@ -8,3 +8,4 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::get('/pull-requests/{owner}/{repo}', [\App\Http\Controllers\PullRequests::class, 'index'])->name('pr');
+Route::get('/reviews/{owner}/{repo}', [\App\Http\Controllers\Reviews::class, 'index'])->name('reviews');
