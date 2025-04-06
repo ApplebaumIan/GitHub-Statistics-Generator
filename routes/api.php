@@ -9,3 +9,5 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/pull-requests/{owner}/{repo}', [\App\Http\Controllers\PullRequests::class, 'index'])->name('pr');
 Route::get('/reviews/{owner}/{repo}', [\App\Http\Controllers\Reviews::class, 'index'])->name('reviews');
+Route::get('/commits/{owner}/{repo}',[\App\Http\Controllers\Commits::class,"index"] )->name('commits');
+
