@@ -30,7 +30,7 @@ class PullRequests extends GitHub
             if ($response->status() === 401) {
                 // Handle 401 Unauthorized error
                 // ...
-                throw new GitHubTokenUnauthorized();
+                throw new GitHubTokenUnauthorized;
             }
 
             $pullRequests = $response->json();
@@ -81,7 +81,7 @@ class PullRequests extends GitHub
         * Chart data
         */
 
-        [$new, $chart] = $this->makeChart($chartData['datasets'][1]['data'], [47, 133, 217], $repo . ' number of Pull Requests ', 1);
+        [$new, $chart] = $this->makeChart($chartData['datasets'][1]['data'], [47, 133, 217], $repo.' number of Pull Requests ', 1);
 
         /*
          * Output image to browser

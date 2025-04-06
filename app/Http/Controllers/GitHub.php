@@ -14,7 +14,7 @@ class GitHub extends Controller
     {
         $data = $data1;
         $new = [];
-        if ($fetchNames){
+        if ($fetchNames) {
             foreach ($data as $user => $value) {
                 $r = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/$user");
                 $user = $r['name'] ? $r['name'] : $user;
