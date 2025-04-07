@@ -8,4 +8,5 @@ environments:
     build:
       - 'composer install --no-dev'
       - 'php artisan event:cache'
+      - 'php artisan storage:link'
       # - 'npm ci && npm run build && rm -rf node_modules'
