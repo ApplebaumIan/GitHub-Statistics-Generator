@@ -1,8 +1,11 @@
 FROM laravelphp/vapor:php82-arm
 
-# Add the `imagick` PHP extension...
-RUN apk --update add imagick
-RUN docker-php-ext-install imagick
+# Install Imagick dependencies
+RUN apk add --no-cache imagemagick imagemagick-dev
 
-# Place application in Lambda application directory...
+# Install and enable the Imagick PHP extension
+RUN pecl install imagick && \
+    docker-php-ext-enable imagick
+
+# Copy your application files
 COPY . /var/task
