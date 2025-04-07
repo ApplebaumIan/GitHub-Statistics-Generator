@@ -1,4 +1,4 @@
-FROM laravelphp/vapor:php82-arm
+FROM laravelphp/vapor:php82
 
 # Install Imagick dependencies
 RUN apk add --no-cache imagemagick imagemagick-dev
