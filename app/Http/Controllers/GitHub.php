@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager as Image;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Imagick;
+use Intervention\Image\Geometry\Factories\BezierFactory;
 
 class GitHub extends Controller
 {
@@ -14,177 +16,138 @@ class GitHub extends Controller
     {
         $data = $data1;
         $new = [];
+        $manager = new ImageManager(Imagick\Driver::class);
+        // Canvas dimensions
+        $width = 1000;
+        $height = 400;
+
         if ($fetchNames) {
             foreach ($data as $user => $value) {
                 $r = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/$user");
-                $user = $r['name'] ? $r['name'] : $user;
+                $user = $r['name'] ?? $user;
                 $new[$user] = $value;
-                arsort($new);
-                $data = $new;
             }
+            arsort($new);
+            $data = $new;
         }
 
-        if ($data == []) {
-
-            // Set the image dimensions
-            $width = 1000;
-            $height = 400;
-
-            // Create a new image instance
-            $img = Image::canvas($width, $height, '#FFFFFF');
-
-            // Set the text to be written on the image
-            $text = 'REVIEWS DATA MISSING!';
-
-            // Set the font size and color
-            $fontSize = 50;
-            $color = '#FF0000';
-
-            // Get the text bounds to center it on the image
-            $textWidth = Image::make($img)->text($text, 0, 0, function ($font) use ($fontSize) {
+        // If no data, return an error image
+        if (empty($data)) {
+            $img = $manager->create($width, $height)->fill('#ffffff');
+            $img->text('REVIEWS DATA MISSING!', 500, 200, function ($font) {
                 $font->file(env('FONT'));
-                $font->size($fontSize);
-            })->width();
-
-            $x = ($width - $textWidth) / 2;
-            $y = ($height - $fontSize) / 2;
-
-            // Add the text to the image
-            $img->text($text, $x, $y, function ($font) use ($fontSize, $color) {
-                $font->file(env('FONT'));
-                $font->size($fontSize);
-                $font->color($color);
+                $font->size(48);
+                $font->color('#ff0000');
+                $font->align('center');
+                $font->valign('center');
             });
-
-            // Save the image to a file
-            $img->save(Storage::path('images/')."reviews_$owner-$repo.png");
-            Cache::put($cacheKey, ['image' => Storage::get("images/reviews_$owner-$repo.png")], now()->addHours(2));
-
-            return response()->make($img, 200, [
-                'Content-Type' => 'image/png',
-                'Content-Disposition' => 'inline; filename="reviews.png"',
-            ]);
+            return [$new, $img];
         }
 
-        /*
-         * Chart settings and create image
-         */
+        // Create the main chart canvas and fill with white background
+        $img = $manager->create($width, $height)->fill('#ffffff');
 
-        // Image dimensions
-        $imageWidth = 1000;
-        $imageHeight = 400;
-
-        // Grid dimensions and placement within image
-        $gridTop = 40;
+        // Chart bounds
         $gridLeft = 50;
-        $gridBottom = 340;
         $gridRight = 850;
-        $gridHeight = $gridBottom - $gridTop;
+        $gridTop = 40;
+        $gridBottom = 340;
+
         $gridWidth = $gridRight - $gridLeft;
+        $gridHeight = $gridBottom - $gridTop;
 
-        // Bar and line width
-        $lineWidth = 1;
+        $yMaxValue = max($data);
         $barWidth = 20;
-
-        // Font settings
         $font = env('FONT');
-        $fontSize = 10;
-
-        // Margin between label and axis
+        $fontSize = 14;
+        $barSpacing = $gridWidth / max(1, count($data));
         $labelMargin = 8;
 
-        // Max value on y-axis
-        $yMaxValue = max(array_values($data1));
+        // Draw horizontal grid lines and left-side Y-axis labels using bezier curves
+        for ($i = 0; $i <= $yMaxValue; $i += $ySpan) {
+            $y = $gridBottom - ($i / $yMaxValue) * $gridHeight;
 
-        // Distance between grid lines on y-axis
-        $yLabelSpan = $ySpan;
+            // Draw a straight horizontal line using three collinear bezier points
+            $img->drawBezier(function (BezierFactory $bezier) use ($gridLeft, $gridRight, $y) {
+                $bezier->point($gridLeft, $y);
+                $bezier->point(($gridLeft + $gridRight) / 2, $y);
+                $bezier->point($gridRight, $y);
+                $bezier->border('#d4d4d4', 1);
+            });
 
-        // Init image
-        $chart = imagecreate($imageWidth, $imageHeight);
-
-        // Setup colors
-        $backgroundColor = imagecolorallocate($chart, 255, 255, 255);
-        $axisColor = imagecolorallocate($chart, 85, 85, 85);
-        $labelColor = $axisColor;
-        $gridColor = imagecolorallocate($chart, 212, 212, 212);
-        $barColor = imagecolorallocate($chart, $barcolor[0], $barcolor[1], $barcolor[2]);
-
-        imagefill($chart, 0, 0, $backgroundColor);
-
-        imagesetthickness($chart, $lineWidth);
-
-        /*
-         * Print grid lines bottom up
-         */
-
-        for ($i = 0; $i <= $yMaxValue; $i += $yLabelSpan) {
-            $y = $gridBottom - $i * $gridHeight / $yMaxValue;
-
-            // draw the line
-            imageline($chart, $gridLeft, $y, $gridRight, $y, $gridColor);
-
-            // draw right aligned label
-            $labelBox = imagettfbbox($fontSize, 0, $font, strval($i));
-            $labelWidth = $labelBox[4] - $labelBox[0];
-
-            $labelX = $gridLeft - $labelWidth - $labelMargin;
-            $labelY = $y + $fontSize / 2;
-
-            imagettftext($chart, $fontSize, 0, $labelX, $labelY, $labelColor, $font, strval($i));
+            // Draw left-side y-axis label
+            $img->text((string) $i, $gridLeft - 10, $y, function ($fontObj) use ($font, $fontSize) {
+                $fontObj->file($font);
+                $fontObj->size($fontSize);
+                $fontObj->color('#555555');
+                $fontObj->align('right');
+                $fontObj->valign('middle');
+            });
         }
 
-        /*
-         * Draw x- and y-axis
-         */
+        // Draw the Y-axis as a vertical bezier (from gridTop to gridBottom at gridLeft)
+        $img->drawBezier(function (BezierFactory $bezier) use ($gridLeft, $gridTop, $gridBottom) {
+            $bezier->point($gridLeft, $gridTop);
+            $bezier->point($gridLeft, ($gridTop + $gridBottom) / 2);
+            $bezier->point($gridLeft, $gridBottom);
+            $bezier->border('#555555', 1);
+        });
 
-        imageline($chart, $gridLeft, $gridTop, $gridLeft, $gridBottom, $axisColor);
-        imageline($chart, $gridLeft, $gridBottom, $gridRight, $gridBottom, $axisColor);
+        // Draw the X-axis as a horizontal bezier (from gridLeft to gridRight at gridBottom)
+        $img->drawBezier(function (BezierFactory $bezier) use ($gridLeft, $gridRight, $gridBottom) {
+            $bezier->point($gridLeft, $gridBottom);
+            $bezier->point(($gridLeft + $gridRight) / 2, $gridBottom);
+            $bezier->point($gridRight, $gridBottom);
+            $bezier->border('#555555', 1);
+        });
 
-        /*
-         * Draw the bars with labels
-         */
-
-        $barSpacing = $gridWidth / count($data);
+        // Draw bars and X-axis labels
         $itemX = $gridLeft + $barSpacing / 2;
-
-        foreach ($data as $key => $value) {
-            // Draw the bar
+        foreach ($data as $label => $value) {
+            $barHeight = ($value / $yMaxValue) * $gridHeight;
             $x1 = $itemX - $barWidth / 2;
-            $y1 = $gridBottom - $value / $yMaxValue * $gridHeight;
             $x2 = $itemX + $barWidth / 2;
-            $y2 = $gridBottom - 1;
+            $y1 = $gridBottom - $barHeight;
+            $y2 = $gridBottom;
 
-            imagefilledrectangle($chart, $x1, $y1, $x2, $y2, $barColor);
+            // Draw the bar as a rectangle
+            $img->drawRectangle($x1, $y1, function ($rect) use ($x1, $x2, $y2, $y1, $barcolor) {
+                $rect->size($x2 - $x1, $y2 - $y1);
+                $rect->background("rgb({$barcolor[0]}, {$barcolor[1]}, {$barcolor[2]})");
+            });
 
-            // Draw the label
-            $labelBox = imagettfbbox($fontSize, 0, $font, $key);
-            $labelWidth = $labelBox[4] - $labelBox[0];
-
-            $labelX = $itemX - $labelWidth / 2;
-            $labelY = $gridBottom + $labelMargin + $fontSize;
-
-            imagettftext($chart, $fontSize, 0, $labelX, $labelY, $labelColor, $font, $key);
+            // Draw label below the bar
+            $img->text($label, $itemX, $gridBottom + $fontSize + $labelMargin, function ($fontObj) use ($font, $fontSize) {
+                $fontObj->file($font);
+                $fontObj->size($fontSize);
+                $fontObj->color('#555555');
+                $fontObj->align('center');
+            });
 
             $itemX += $barSpacing;
         }
 
-        imagettftext($chart, $fontSize, 0, $gridRight - $gridWidth + $gridWidth / 4, $gridTop - 10, $labelColor, $font, $title.Date::now()->toDateTimeString());
+        // Add chart title and timestamp
+        $img->text($title . ' — ' . Date::now()->toDateTimeString(), $width / 2, 20, function ($fontObj) use ($font) {
+            $fontObj->file($font);
+            $fontObj->size(16);
+            $fontObj->color('#555555');
+            $fontObj->align('center');
+        });
 
-        return [$new, $chart];
+        return [$new, $img];
     }
 
     protected function saveChart(mixed $chart, $title, $owner, $repo, string $cacheKey): void
     {
-
-        imagepng($chart, Storage::path('images/')."{$title}$owner-$repo.png");
-
-        Cache::put($cacheKey, ['image' => Storage::get("images/pull_requests_$owner-$repo.png")], now()->addHours(2));
+        $path = "images/{$title}{$owner}-{$repo}.png";
+        $chart->save(storage_path("app/public/{$path}"));
+        Cache::put($cacheKey, ['url' => asset("storage/{$path}")], now()->addHours(2));
     }
 
     protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
     {
         $links = \GuzzleHttp\Psr7\Header::parse($headerLinks);
-
         foreach ($links as $link) {
             if (isset($link['rel']) && $link['rel'] === 'last') {
                 $urlParts = parse_url($link[0]);
@@ -194,7 +157,6 @@ class GitHub extends Controller
                 }
             }
         }
-
         return 1;
     }
 }

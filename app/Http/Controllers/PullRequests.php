@@ -6,6 +6,7 @@ use App\Exceptions\GitHubTokenUnauthorized;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Intervention\Image\Encoders\PngEncoder;
 
 class PullRequests extends GitHub
 {
@@ -88,11 +89,12 @@ class PullRequests extends GitHub
          */
         $title = 'pull_requests_';
         $this->saveChart($chart, $title, $owner, $repo, $cacheKey);
+        $encoded = $chart->encode(new PngEncoder());
 
-        return response()->make(imagepng($chart), 200, [
-            'Content-Type' => 'image/png',
-            'Content-Disposition' => 'inline; filename="pull_requests.png"',
-        ]);
+        return response($encoded)
+            ->header('Content-Type', 'image/png')
+            ->header('Content-Disposition', 'inline; filename="pull_requests.png"');
+
         //        return $chartData;
     }
 }

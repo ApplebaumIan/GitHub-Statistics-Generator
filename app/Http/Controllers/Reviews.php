@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Encoders\PngEncoder;
 use Intervention\Image\ImageManager as Image;
 
 class Reviews extends GitHub
@@ -101,11 +102,10 @@ class Reviews extends GitHub
         //file_get_contents('/tmp/gorgeous_chart.png');//$graph->img;//$chartImage->encode('png')->getEncoded();
 
         Cache::put($cacheKey, ['image' => Storage::get("images/reviews_$owner-$repo.png")], now()->addHours(2));
+        $encoded = $chart->encode(new PngEncoder());
 
-        return response()->make(imagepng($chart), 200, [
-            'Content-Type' => 'image/png',
-            'Content-Disposition' => 'inline; filename="reviews.png"',
-        ]);
-        //        return $chartData;
+        return response($encoded)
+            ->header('Content-Type', 'image/png')
+            ->header('Content-Disposition', 'inline; filename="reviews.png"');
     }
 }

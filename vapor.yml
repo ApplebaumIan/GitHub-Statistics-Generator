@@ -1,0 +1,11 @@
+id: 70598
+name: GitHub-Statistics
+environments:
+  production:
+    memory: 1024
+    cli-memory: 512
+    runtime: docker-arm
+    build:
+      - 'composer install --no-dev'
+      - 'php artisan event:cache'
+      # - 'npm ci && npm run build && rm -rf node_modules'
