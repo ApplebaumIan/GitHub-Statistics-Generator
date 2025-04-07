@@ -15,12 +15,11 @@ class PullRequests extends GitHub
         $cacheKey = "pull_requests_$owner-$repo";
         $cachedData = Cache::get($cacheKey);
 
-        if ($cachedData) {
-            return response()->make($cachedData['image'], 200, [
-                'Content-Type' => 'image/png',
-                'Content-Disposition' => 'inline; filename="pull_requests.png"',
-            ]);
+        if ($response = $this->respondWithCachedChart($cacheKey)) {
+            return $response;
         }
+
+
         $page = 1;
 
         $result = [];

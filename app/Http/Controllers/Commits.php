@@ -17,12 +17,10 @@ class Commits extends GitHub
         $cacheKey = "commits_$owner-$repo";
         $cachedData = Cache::get($cacheKey);
 
-        if ($cachedData) {
-            return response()->make($cachedData['image'], 200, [
-                'Content-Type' => 'image/png',
-                'Content-Disposition' => 'inline; filename="commits.png"',
-            ]);
+        if ($response = $this->respondWithCachedChart($cacheKey)) {
+            return $response;
         }
+
         $promises = [];
         $page = 1;
         $response = Http::get("https://api.github.com/repos/$owner/$repo/commits?page=$page&per_page=100");

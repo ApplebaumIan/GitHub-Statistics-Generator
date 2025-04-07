@@ -17,14 +17,11 @@ class Reviews extends GitHub
     public function index(Request $request, $owner, $repo)
     {
         $cacheKey = "reviews_$owner-$repo";
-        $cachedData = Cache::get($cacheKey);
 
-        if ($cachedData) {
-            return response()->make($cachedData['image'], 200, [
-                'Content-Type' => 'image/png',
-                'Content-Disposition' => 'inline; filename="reviews.png"',
-            ]);
+        if ($response = $this->respondWithCachedChart($cacheKey)) {
+            return $response;
         }
+
         $page = 1;
         $result = [];
         $promises = [];

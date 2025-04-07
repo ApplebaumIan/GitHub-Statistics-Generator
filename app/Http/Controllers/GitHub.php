@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Drivers\Imagick\Encoders\PngEncoder;
+use Intervention\Image\Encoders\PngEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick;
 use Intervention\Image\Geometry\Factories\BezierFactory;
@@ -150,13 +151,14 @@ class GitHub extends Controller
         $filename = "{$title}{$owner}-{$repo}.png";
         $fullPath = "{$directory}/{$filename}";
 
+        // Save locally (optional)
         $chart->save($fullPath);
 
-        // Also cache the actual PNG data
-        $encoded = $chart->encode(new PngEncoder());
+        // Encode and cache as raw binary string
+        $encoded = (string) $chart->encode(new PngEncoder());
+
         Cache::put($cacheKey, ['image' => $encoded], now()->addHours(2));
     }
-
     protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
     {
         $links = \GuzzleHttp\Psr7\Header::parse($headerLinks);
@@ -170,5 +172,16 @@ class GitHub extends Controller
             }
         }
         return 1;
+    }
+
+    protected function respondWithCachedChart(string $cacheKey): ?Response
+    {
+        $cachedData = Cache::get($cacheKey);
+        if ($cachedData && isset($cachedData['image'])) {
+            return response($cachedData['image'])
+                ->header('Content-Type', 'image/png')
+                ->header('Content-Disposition', 'inline; filename="'."$cacheKey.png".'"');
+        }
+        return null;
     }
 }
