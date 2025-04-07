@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Drivers\Imagick\Encoders\PngEncoder;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick;
 use Intervention\Image\Geometry\Factories\BezierFactory;
@@ -151,7 +152,9 @@ class GitHub extends Controller
 
         $chart->save($fullPath);
 
-        Cache::put($cacheKey, ['url' => asset("storage/images/{$filename}")], now()->addHours(2));
+        // Also cache the actual PNG data
+        $encoded = $chart->encode(new PngEncoder());
+        Cache::put($cacheKey, ['image' => $encoded], now()->addHours(2));
     }
 
     protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
