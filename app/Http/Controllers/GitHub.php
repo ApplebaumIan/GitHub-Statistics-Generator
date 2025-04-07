@@ -35,7 +35,7 @@ class GitHub extends Controller
         if (empty($data)) {
             $img = $manager->create($width, $height)->fill('#ffffff');
             $img->text('REVIEWS DATA MISSING!', 500, 200, function ($font) {
-                $font->file(env('FONT'));
+                $font->file(base_path(env('FONT')));
                 $font->size(48);
                 $font->color('#ff0000');
                 $font->align('center');
@@ -58,7 +58,7 @@ class GitHub extends Controller
 
         $yMaxValue = max($data);
         $barWidth = 20;
-        $font = env('FONT');
+        $font = base_path(env('FONT'));
         $fontSize = 14;
         $barSpacing = $gridWidth / max(1, count($data));
         $labelMargin = 8;
