@@ -12,7 +12,7 @@ class PullRequests extends GitHub
 {
     public function index(Request $request, $owner, $repo)
     {
-        $cacheKey = "pull_requests_$owner-$repo";
+        $cacheKey = "pull-requests_$owner-$repo";
         $cachedData = Cache::get($cacheKey);
 
         if ($response = $this->respondWithCachedChart($cacheKey)) {
