@@ -140,9 +140,18 @@ class GitHub extends Controller
 
     protected function saveChart(mixed $chart, $title, $owner, $repo, string $cacheKey): void
     {
-        $path = "images/{$title}{$owner}-{$repo}.png";
-        $chart->save(storage_path("app/public/{$path}"));
-        Cache::put($cacheKey, ['url' => asset("storage/{$path}")], now()->addHours(2));
+        $directory = storage_path('app/public/images');
+
+        if (!file_exists($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $filename = "{$title}{$owner}-{$repo}.png";
+        $fullPath = "{$directory}/{$filename}";
+
+        $chart->save($fullPath);
+
+        Cache::put($cacheKey, ['url' => asset("storage/images/{$filename}")], now()->addHours(2));
     }
 
     protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
