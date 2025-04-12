@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 
-Schedule::command('charts:pregenerate')->daily();
+Schedule::command('charts:pregenerate')->hourly();
