@@ -5,21 +5,36 @@ namespace App\Http\Controllers;
 use App\Exceptions\GitHubTokenUnauthorized;
 use GuzzleHttp\Promise\Utils;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class Reviews extends GitHub
 {
+    // Cache TTLs in minutes
+    const REVIEWS_CACHE_TTL = 60; // 1 hour
+    const PR_CACHE_TTL = 120; // 2 hours
+    const USER_CACHE_TTL = 1440; // 24 hours
+    const CHART_CACHE_TTL = 60; // 1 hour
+
     public function index(Request $request, $owner, $repo)
     {
-        $cacheKey = "reviews_$owner-$repo";
+        $chartCacheKey = "chart_reviews_{$owner}-{$repo}";
 
-        if ($response = $this->respondWithCachedChart($cacheKey)) {
+        // Try to return cached chart first
+        if ($response = $this->respondWithCachedChart($chartCacheKey)) {
             return $response;
         }
 
+        // Get review data (cached or fresh)
         $data = $this->get($owner, $repo);
+
+        // Generate chart
         $mermaid = $this->mermaid($data, $repo, 'Reviews');
         $url = $this->mermaidUrl($mermaid, '#70ff33');
+
+        // Cache the chart URL
+        Cache::put($chartCacheKey, $url, now()->addMinutes(self::CHART_CACHE_TTL));
 
         return redirect()->to($url, 301);
     }
@@ -33,68 +48,217 @@ class Reviews extends GitHub
      */
     public static function get($owner, $repo): array
     {
+        $reviewsCacheKey = "processed_reviews_{$owner}-{$repo}";
+
+        // Try to get cached reviews data
+        $cachedData = Cache::get($reviewsCacheKey);
+
+        if ($cachedData) {
+            return $cachedData;
+        }
+
+        // Fetch all required data
+        $pulls = self::fetchPullRequests($owner, $repo);
+        $reviewData = self::fetchReviewsForPulls($owner, $repo, $pulls);
+        $reviewsWithUserNames = self::enrichWithUserData($reviewData);
+
+        // Cache the processed data
+        Cache::put($reviewsCacheKey, $reviewsWithUserNames, now()->addMinutes(self::REVIEWS_CACHE_TTL));
+
+        return $reviewsWithUserNames;
+    }
+
+    /**
+     * Fetch pull requests with caching
+     */
+    private static function fetchPullRequests($owner, $repo): array
+    {
+        $pullsCacheKey = "pr_list_{$owner}-{$repo}";
+        $etagKey = "etag_pr_list_{$owner}-{$repo}";
+
+        // Try to get cached pull requests
+        $cachedPulls = Cache::get($pullsCacheKey);
+        if ($cachedPulls) {
+            return $cachedPulls;
+        }
+
         $page = 1;
-        $result = [];
-        $promises = [];
-        $response = Http::get("https://api.github.com/repos/$owner/$repo/pulls?state=all&page=$page&per_page=100");
-        $headerLinks = $response->header('Link');
-        $totalPages = GitHub::getTotalPagesFromHeaderLinks($headerLinks);
+        $allPulls = [];
+        $etag = Cache::get($etagKey);
+
         do {
-            $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls?state=all&page=$page&per_page=100");
-            $page++;
-        } while ($page <= $totalPages);
+            // Set conditional header if we have an ETag for the first page
+            $headers = [];
+            if ($etag && $page === 1) {
+                $headers['If-None-Match'] = $etag;
+            }
 
-        $responses = Utils::unwrap($promises);
-        $promises = [];
+            $response = Http::withToken(env('GITHUB'))
+                ->withHeaders($headers)
+                ->get("https://api.github.com/repos/$owner/$repo/pulls", [
+                    'state' => 'all',
+                    'page' => $page,
+                    'per_page' => 100
+                ]);
 
-        foreach ($responses as $response) {
+            // Handle 304 Not Modified on first page
+            if ($page === 1 && $response->status() === 304) {
+                return Cache::get($pullsCacheKey) ?? [];
+            }
+
+            // Store new ETag from first page
+            if ($page === 1) {
+                $newEtag = $response->header('ETag');
+                if ($newEtag) {
+                    Cache::put($etagKey, $newEtag, now()->addDays(30));
+                }
+            }
+
             if ($response->status() === 401) {
-                // Handle 401 Unauthorized error
-                // ...
                 throw new GitHubTokenUnauthorized;
             }
+
             $pullRequests = $response->json();
-
-            foreach ($pullRequests as $pullRequest) {
-                $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls/".$pullRequest['number'].'/reviews');
-
+            if (empty($pullRequests)) {
+                break;
             }
 
-            $responses = Utils::unwrap($promises);
+            // Extract only the data we need
+            foreach ($pullRequests as $pull) {
+                $allPulls[] = [
+                    'number' => $pull['number'],
+                    'updated_at' => $pull['updated_at']
+                ];
+            }
 
-            foreach ($responses as $reviews_response) {
-                $reviews = $reviews_response->json();
+            // Check if there are more pages
+            $linkHeader = $response->header('Link');
+            $hasNextPage = $linkHeader && strpos($linkHeader, 'rel="next"') !== false;
 
-                //            $state = $pullRequest['state'];
-                foreach ($reviews as $review) {
-                    $user = $review['user']['login'];
+            if (!$hasNextPage) {
+                break;
+            }
 
-                    if ($review['user']['login'] == $user) {
-                        if (isset($result[$user])) {
-                            $result[$user]++;
-                        } else {
-                            $result[$user] = 1;
-                        }
+            $page++;
+        } while (true);
+
+        // Cache the pull requests
+        Cache::put($pullsCacheKey, $allPulls, now()->addMinutes(self::PR_CACHE_TTL));
+
+        return $allPulls;
+    }
+
+    /**
+     * Fetch reviews for multiple pull requests with batch processing
+     */
+    private static function fetchReviewsForPulls($owner, $repo, array $pulls): array
+    {
+        $result = [];
+        $promises = [];
+        $batchSize = 25; // Process in smaller batches to avoid overwhelming the API
+
+        $pullBatches = array_chunk($pulls, $batchSize);
+
+        foreach ($pullBatches as $pullBatch) {
+            $batchPromises = [];
+
+            foreach ($pullBatch as $pull) {
+                $pullNumber = $pull['number'];
+                $reviewsCacheKey = "reviews_pull_{$owner}-{$repo}-{$pullNumber}";
+
+                // Check cache for this specific PR's reviews
+                $cachedReviews = Cache::get($reviewsCacheKey);
+
+                if ($cachedReviews) {
+                    // Use cached data
+                    self::processReviews($cachedReviews, $result);
+                } else {
+                    // Need to fetch from API
+                    $batchPromises[$pullNumber] = Http::withToken(env('GITHUB'))
+                        ->async()
+                        ->get("https://api.github.com/repos/$owner/$repo/pulls/{$pullNumber}/reviews");
+                }
+            }
+
+            // Process any API requests needed for this batch
+            if (!empty($batchPromises)) {
+                $responses = Utils::unwrap($batchPromises);
+
+                foreach ($responses as $pullNumber => $response) {
+                    if ($response->successful()) {
+                        $reviews = $response->json();
+
+                        // Cache these reviews
+                        $reviewsCacheKey = "reviews_pull_{$owner}-{$repo}-{$pullNumber}";
+                        Cache::put($reviewsCacheKey, $reviews, now()->addMinutes(self::PR_CACHE_TTL));
+
+                        // Process the reviews
+                        self::processReviews($reviews, $result);
                     }
                 }
             }
 
+            // Small delay to avoid rate limiting
+            if (count($pullBatches) > 1) {
+                usleep(100000); // 100ms
+            }
         }
 
-        /*
-  * Chart data
-  */
+        return $result;
+    }
 
-        $data = $result;
-        $new = [];
-        foreach ($data as $user => $value) {
-            $r = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/$user");
-            $user = $r['name'] ? $r['name'] : $user;
-            $new[$user] = $value;
+    /**
+     * Process reviews and count them by user
+     */
+    private static function processReviews(array $reviews, array &$result): void
+    {
+        foreach ($reviews as $review) {
+            if (!isset($review['user']) || !isset($review['user']['login'])) {
+                continue;
+            }
+
+            $user = $review['user']['login'];
+
+            if (isset($result[$user])) {
+                $result[$user]++;
+            } else {
+                $result[$user] = 1;
+            }
         }
-        arsort($new);
-        $data = $new;
+    }
 
-        return $new;
+    /**
+     * Enrich review data with user names
+     */
+    private static function enrichWithUserData(array $reviewData): array
+    {
+        $enriched = [];
+
+        foreach ($reviewData as $login => $count) {
+            $userCacheKey = "github_user_" . md5($login);
+
+            // Try to get cached user data
+            $userData = Cache::get($userCacheKey);
+
+            if (!$userData) {
+                // Fetch from API if not cached
+                $response = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/" . urlencode($login));
+
+                if ($response->successful()) {
+                    $userData = $response->json();
+                    // Cache the user data
+                    Cache::put($userCacheKey, $userData, now()->addMinutes(self::USER_CACHE_TTL));
+                } else {
+                    // If API request fails, use original login
+                    $userData = ['name' => $login];
+                }
+            }
+
+            $displayName = $userData['name'] ?? $login;
+            $enriched[$displayName] = $count;
+        }
+
+        arsort($enriched);
+        return $enriched;
     }
 }
