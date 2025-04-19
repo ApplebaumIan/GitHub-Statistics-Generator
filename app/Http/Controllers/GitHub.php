@@ -6,11 +6,10 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Encoders\PngEncoder;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Imagick;
+use Intervention\Image\Encoders\PngEncoder;
 use Intervention\Image\Geometry\Factories\BezierFactory;
+use Intervention\Image\ImageManager;
 
 class GitHub extends Controller
 {
@@ -43,6 +42,7 @@ class GitHub extends Controller
                 $font->align('center');
                 $font->valign('center');
             });
+
             return [$new, $img];
         }
 
@@ -130,7 +130,7 @@ class GitHub extends Controller
         }
 
         // Add chart title and timestamp
-        $img->text($title . ' — ' . Date::now()->toDateTimeString(), $width / 2, 20, function ($fontObj) use ($font) {
+        $img->text($title.' — '.Date::now()->toDateTimeString(), $width / 2, 20, function ($fontObj) use ($font) {
             $fontObj->file($font);
             $fontObj->size(16);
             $fontObj->color('#555555');
@@ -144,7 +144,7 @@ class GitHub extends Controller
     {
         $directory = storage_path('app/public/images');
 
-        if (!file_exists($directory)) {
+        if (! file_exists($directory)) {
             mkdir($directory, 0755, true);
         }
 
@@ -155,10 +155,11 @@ class GitHub extends Controller
         $chart->save($fullPath);
 
         // Encode and cache as raw binary string
-        $encoded = (string) $chart->encode(new PngEncoder());
+        $encoded = (string) $chart->encode(new PngEncoder);
 
         Cache::put($cacheKey, ['image' => $encoded], now()->addHours(2));
     }
+
     protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
     {
         $links = \GuzzleHttp\Psr7\Header::parse($headerLinks);
@@ -171,6 +172,7 @@ class GitHub extends Controller
                 }
             }
         }
+
         return 1;
     }
 
@@ -182,6 +184,32 @@ class GitHub extends Controller
                 ->header('Content-Type', 'image/png')
                 ->header('Content-Disposition', 'inline; filename="'."$cacheKey.png".'"');
         }
+
         return null;
+    }
+
+    public function serializeMermaidState(string $mermaid): string
+    {
+        $state = [
+            'code' => $mermaid,
+            'mermaid' => ['theme' => 'default'],
+        ];
+        $json = json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        /* Returns
+         * "{"code":"xychart-beta\ntitle \"Commits — Example\"\nx-axis [\"ApplebaumIan\"]\ny-axis \"Commits\" 0 --> 1\nbar [1]","mermaid":{"theme":"default"}}"
+         */
+
+        //        $json = mb_convert_encoding($json, 'UTF-16', 'UTF-8'); // I believe mermaid.ink requires utf8 encoding and I read somewhere PHP uses utf16 for some reason so I added this as a precaution.
+
+        return $json;
+    }
+
+    public function encodeMermaid(string $mermaid): string
+    {
+        //        $compressed = gzcompress($mermaid, 9);
+        $base64 = base64_encode($mermaid);
+        $urlSafe = strtr(rtrim($base64, '='), '+/', '-_');
+
+        return $urlSafe;
     }
 }

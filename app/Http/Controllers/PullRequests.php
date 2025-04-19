@@ -3,22 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\GitHubTokenUnauthorized;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Intervention\Image\Encoders\PngEncoder;
 
 class PullRequests extends GitHub
 {
     public function index(Request $request, $owner, $repo)
     {
         $cacheKey = "pull-requests_$owner-$repo";
-        $cachedData = Cache::get($cacheKey);
+        //        $cachedData = Cache::get($cacheKey);
 
         if ($response = $this->respondWithCachedChart($cacheKey)) {
             return $response;
         }
-
 
         $page = 1;
 
@@ -76,24 +75,26 @@ class PullRequests extends GitHub
                 ],
             ],
         ];
+        $labels = $chartData['labels'];
+        $values = $chartData['datasets'][1]['data'];
+        $labelString = implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels));
+        $valueString = implode(', ', $values);
+        $maxY = max($values);
+        $date = Carbon::now()->setTimezone('EST');
+        $date = $date->setTimezone('EST')->toDateTimeString();
+        $mermaid = <<<EOT
+    xychart-beta
+    title "Commits — Example"
+    x-axis [{$labelString}]
+    y-axis "Commits" 0 --> {$maxY}
+    bar [{$valueString}]
+    EOT;
 
-        /*
-        * Chart data
-        */
+        $json = $this->serializeMermaidState($mermaid);
+        $encoded = $this->encodeMermaid($json);
+        //        $encoded = urlencode($encoded);
+        $url = "https://mermaid.ink/img/{$encoded}";
 
-        [$new, $chart] = $this->makeChart($chartData['datasets'][1]['data'], [47, 133, 217], $repo.' number of Pull Requests ', 1);
-
-        /*
-         * Output image to browser
-         */
-        $title = 'pull_requests_';
-        $this->saveChart($chart, $title, $owner, $repo, $cacheKey);
-        $encoded = $chart->encode(new PngEncoder());
-
-        return response($encoded)
-            ->header('Content-Type', 'image/png')
-            ->header('Content-Disposition', 'inline; filename="pull_requests.png"');
-
-        //        return $chartData;
+        return redirect()->to($url, 301);
     }
 }
