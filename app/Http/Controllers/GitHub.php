@@ -161,7 +161,7 @@ class GitHub extends Controller
         Cache::put($cacheKey, ['image' => $encoded], now()->addHours(2));
     }
 
-    protected function getTotalPagesFromHeaderLinks(string $headerLinks): int
+    protected static function getTotalPagesFromHeaderLinks(string $headerLinks): int
     {
         $links = \GuzzleHttp\Psr7\Header::parse($headerLinks);
         foreach ($links as $link) {
@@ -228,7 +228,7 @@ class GitHub extends Controller
         return $url;
     }
 
-    public function getMermaid(array $chartData, $repo, $metric, $showDate = false): string
+    public function mermaid(array $chartData, $repo, $metric, $showDate = false): string
     {
         $labels = array_keys($chartData); // $chartData['labels'];
         $values = array_values($chartData);

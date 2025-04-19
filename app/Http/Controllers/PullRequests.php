@@ -18,6 +18,25 @@ class PullRequests extends GitHub
             return $response;
         }
 
+        $data = $this->get($owner, $repo);
+
+        //        $data = $sort;
+        $mermaid = $this->mermaid($data, $repo, 'Pull Requests');
+        $url = $this->mermaidUrl($mermaid, '#33a3ff');
+
+        //        dd($url);
+        return redirect()->to($url, 301);
+    }
+
+    /**
+     * @param $owner
+     * @param $repo
+     * @return mixed
+     * @throws GitHubTokenUnauthorized
+     * @throws \Illuminate\Http\Client\ConnectionException
+     */
+    public static function get($owner, $repo): mixed
+    {
         $page = 1;
 
         $result = [];
@@ -37,7 +56,7 @@ class PullRequests extends GitHub
                 $user = $pullRequest['user']['login'];
                 $state = $pullRequest['state'];
 
-                if (! isset($result[$user])) {
+                if (!isset($result[$user])) {
                     $result[$user] = [
                         'opened' => 0,
                         'closed' => 0,
@@ -51,7 +70,7 @@ class PullRequests extends GitHub
                 }
             }
             $page++;
-        } while (! empty($pullRequests));
+        } while (!empty($pullRequests));
 
         //        return $result;
 
@@ -75,15 +94,9 @@ class PullRequests extends GitHub
             ],
         ];
         $data =
-          $chartData['datasets'][1]['data'];
+            $chartData['datasets'][1]['data'];
         arsort($data);
-
-        //        $data = $sort;
-        $mermaid = $this->getMermaid($data, $repo, 'Pull Requests');
-        $url = $this->mermaidUrl($mermaid, '#33a3ff');
-
-        //        dd($url);
-        return redirect()->to($url, 301);
+        return $data;
     }
 
     /**

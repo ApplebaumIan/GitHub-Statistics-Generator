@@ -19,11 +19,28 @@ class Commits extends GitHub
             return $response;
         }
 
+        $data= $this->get($owner, $repo);
+        $mermaid = $this->mermaid($data, $repo, 'Commits');
+        $url = $this->mermaidUrl($mermaid, '#ff9633');
+
+        return redirect()->to($url, 301);
+    }
+
+    /**
+     * @param $owner
+     * @param $repo
+     * @return array[]
+     * @throws GitHubTokenUnauthorized
+     * @throws \Illuminate\Http\Client\ConnectionException
+     * @throws \Throwable
+     */
+    public static function get($owner, $repo): array
+    {
         $promises = [];
         $page = 1;
         $response = Http::get("https://api.github.com/repos/$owner/$repo/commits?page=$page&per_page=100");
         $headerLinks = $response->header('Link');
-        $totalPages = $this->getTotalPagesFromHeaderLinks($headerLinks);
+        $totalPages = GitHub::getTotalPagesFromHeaderLinks($headerLinks);
         do {
             $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/commits?page=$page&per_page=100");
             $page++;
@@ -58,16 +75,13 @@ class Commits extends GitHub
         $new = [];
         foreach ($data as $user => $value) {
             $r = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/$user");
-            if (! empty($r)) {
+            if (!empty($r)) {
                 $user = isset($r['name']) ? $r['name'] : $user;
                 $new[$user] = $value;
             }
         }
         arsort($new);
         $data = $new;
-        $mermaid = $this->getMermaid($data, $repo, 'Commits');
-        $url = $this->mermaidUrl($mermaid, '#ff9633');
-
-        return redirect()->to($url, 301);
+        return $new;
     }
 }

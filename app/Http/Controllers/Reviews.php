@@ -17,12 +17,29 @@ class Reviews extends GitHub
             return $response;
         }
 
+        $data = $this->get($owner, $repo);
+        $mermaid = $this->mermaid($data, $repo, 'Reviews');
+        $url = $this->mermaidUrl($mermaid, '#70ff33');
+
+        return redirect()->to($url, 301);
+    }
+
+    /**
+     * @param $owner
+     * @param $repo
+     * @return array[]
+     * @throws GitHubTokenUnauthorized
+     * @throws \Illuminate\Http\Client\ConnectionException
+     * @throws \Throwable
+     */
+    public static function get($owner, $repo): array
+    {
         $page = 1;
         $result = [];
         $promises = [];
         $response = Http::get("https://api.github.com/repos/$owner/$repo/pulls?state=all&page=$page&per_page=100");
         $headerLinks = $response->header('Link');
-        $totalPages = $this->getTotalPagesFromHeaderLinks($headerLinks);
+        $totalPages = GitHub::getTotalPagesFromHeaderLinks($headerLinks);
         do {
             $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls?state=all&page=$page&per_page=100");
             $page++;
@@ -40,7 +57,7 @@ class Reviews extends GitHub
             $pullRequests = $response->json();
 
             foreach ($pullRequests as $pullRequest) {
-                $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls/".$pullRequest['number'].'/reviews');
+                $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls/" . $pullRequest['number'] . '/reviews');
 
             }
 
@@ -78,9 +95,6 @@ class Reviews extends GitHub
         }
         arsort($new);
         $data = $new;
-        $mermaid = $this->getMermaid($data, $repo, 'Reviews');
-        $url = $this->mermaidUrl($mermaid, '#70ff33');
-
-        return redirect()->to($url, 301);
+        return $new;
     }
 }
