@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 class PreGeneratePopularCharts extends Command
 {
     protected $signature = 'charts:pregenerate';
+
     protected $description = 'Pre-generate chart images for frequently accessed keys';
 
     public function handle(): int
@@ -24,6 +25,7 @@ class PreGeneratePopularCharts extends Command
 
                 if (count($parts) < 3) {
                     $this->warn("Invalid cache key: {$request->cache_key}");
+
                     return;
                 }
 
@@ -37,7 +39,7 @@ class PreGeneratePopularCharts extends Command
 
                 GenerateChartImage::dispatch($type, $owner, $repo);
 
-                if(ChartRequest::where('last_accessed_at', '<', now()->subYear())->delete()){
+                if (ChartRequest::where('last_accessed_at', '<', now()->subYear())->delete()) {
                     $this->info('Old chart requests pruned.');
                 }
 

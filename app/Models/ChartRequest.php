@@ -8,8 +8,9 @@ class ChartRequest extends Model
 {
     //
     protected $table = 'chart_requests';
+
     protected $fillable = [
-      'cache_key',
+        'cache_key',
         'hit_count',
         'last_accessed_at',
     ];

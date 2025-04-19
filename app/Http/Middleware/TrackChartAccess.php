@@ -30,5 +30,4 @@ class TrackChartAccess
 
         return $response;
     }
-
 }

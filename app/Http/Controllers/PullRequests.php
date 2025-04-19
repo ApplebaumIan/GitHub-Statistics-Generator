@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\GitHubTokenUnauthorized;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -79,17 +78,17 @@ class PullRequests extends GitHub
           $chartData['datasets'][1]['data'];
         arsort($data);
 
-//        $data = $sort;
-        $mermaid = $this->getMermaid($data, $repo, "Pull Requests");
+        //        $data = $sort;
+        $mermaid = $this->getMermaid($data, $repo, 'Pull Requests');
         $url = $this->mermaidUrl($mermaid, '#33a3ff');
-//        dd($url);
+
+        //        dd($url);
         return redirect()->to($url, 301);
     }
 
     /**
-     * @param array $chartData
-     * @param $repo
+     * @param  array  $chartData
+     * @param  $repo
      * @return string
      */
-
 }

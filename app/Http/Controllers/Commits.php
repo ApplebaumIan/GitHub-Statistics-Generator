@@ -7,8 +7,6 @@ use GuzzleHttp\Promise\Utils;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Encoders\PngEncoder;
 
 class Commits extends GitHub
 {
@@ -67,8 +65,9 @@ class Commits extends GitHub
         }
         arsort($new);
         $data = $new;
-        $mermaid = $this->getMermaid($data, $repo, "Commits");
+        $mermaid = $this->getMermaid($data, $repo, 'Commits');
         $url = $this->mermaidUrl($mermaid, '#ff9633');
+
         return redirect()->to($url, 301);
     }
 }

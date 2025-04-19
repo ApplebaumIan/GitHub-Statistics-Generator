@@ -5,11 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\GitHubTokenUnauthorized;
 use GuzzleHttp\Promise\Utils;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Encoders\PngEncoder;
-use Intervention\Image\ImageManager as Image;
 
 class Reviews extends GitHub
 {
@@ -82,8 +78,9 @@ class Reviews extends GitHub
         }
         arsort($new);
         $data = $new;
-        $mermaid = $this->getMermaid($data, $repo, "Reviews");
+        $mermaid = $this->getMermaid($data, $repo, 'Reviews');
         $url = $this->mermaidUrl($mermaid, '#70ff33');
+
         return redirect()->to($url, 301);
     }
 }

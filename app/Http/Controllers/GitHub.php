@@ -194,9 +194,9 @@ class GitHub extends Controller
         $state = [
             'code' => $mermaid,
             'mermaid' => ['theme' => 'default',
-                'themeVariables'=> ['xyChart'=> $themeVars
+                'themeVariables' => ['xyChart' => $themeVars,
                 ],
-                ]
+            ],
         ];
         $json = json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         /* Returns
@@ -220,21 +220,23 @@ class GitHub extends Controller
     public function mermaidUrl(string $mermaid, $barColor): string
     {
         $json = $this->serializeMermaidState($mermaid, [
-            'plotColorPalette' => '' . $barColor . '',
+            'plotColorPalette' => ''.$barColor.'',
         ]);
         $encoded = $this->encodeMermaid($json);
-        $url = env('MERMAID','https://mermaid.ink')."/img/{$encoded}";
+        $url = env('MERMAID', 'https://mermaid.ink')."/img/{$encoded}";
+
         return $url;
     }
-    public function getMermaid(array $chartData, $repo, $metric, $showDate=false): string
+
+    public function getMermaid(array $chartData, $repo, $metric, $showDate = false): string
     {
-        $labels = array_keys($chartData);//$chartData['labels'];
+        $labels = array_keys($chartData); // $chartData['labels'];
         $values = array_values($chartData);
-//        dd($values);
-        $labelString = implode(', ', array_map(fn($l) => '"' . $l . '"', $labels));
+        //        dd($values);
+        $labelString = implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels));
         $valueString = implode(', ', $values);
         $maxY = max($values);
-        $date = "";
+        $date = '';
         if ($showDate) {
             $date = Carbon::now()->setTimezone('EST');
             $date = $date->setTimezone('EST')->toDateTimeString();
@@ -248,6 +250,7 @@ class GitHub extends Controller
     y-axis "{$metric}" 0 --> {$maxY}
     bar [{$valueString}]
     EOT;
+
         return $mermaid;
     }
 }

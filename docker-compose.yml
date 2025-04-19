@@ -47,6 +47,14 @@ services:
                 - '-p${DB_PASSWORD}'
             retries: 3
             timeout: 5s
+    mermaid:
+        image: ghcr.io/jihchi/mermaid.ink
+        ports:
+            -   3000:3000
+        cap_add:
+            - SYS_ADMIN
+        networks:
+            - sail
 networks:
     sail:
         driver: bridge
