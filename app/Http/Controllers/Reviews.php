@@ -6,7 +6,6 @@ use App\Exceptions\GitHubTokenUnauthorized;
 use GuzzleHttp\Promise\Utils;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\PngEncoder;
@@ -40,7 +39,7 @@ class Reviews extends GitHub
             if ($response->status() === 401) {
                 // Handle 401 Unauthorized error
                 // ...
-                throw new GitHubTokenUnauthorized();
+                throw new GitHubTokenUnauthorized;
             }
             $pullRequests = $response->json();
 
@@ -83,26 +82,8 @@ class Reviews extends GitHub
         }
         arsort($new);
         $data = $new;
-
-        /*
-            * Chart settings and create image
-            */
-
-        [$new, $chart] = $this->makeChart($data, [128, 213, 83], $repo . ' number of Reviews ',false);
-
-        /*
-         * Output image to browser
-         */
-        $title = 'reviews_';
-        $this->saveChart($chart, $title, $owner, $repo, $cacheKey);
-
-        //file_get_contents('/tmp/gorgeous_chart.png');//$graph->img;//$chartImage->encode('png')->getEncoded();
-
-        Cache::put($cacheKey, ['image' => Storage::get("images/reviews_$owner-$repo.png")], now()->addHours(2));
-        $encoded = $chart->encode(new PngEncoder());
-
-        return response($encoded)
-            ->header('Content-Type', 'image/png')
-            ->header('Content-Disposition', 'inline; filename="reviews.png"');
+        $mermaid = $this->getMermaid($data, $repo, "Reviews");
+        $url = $this->mermaidUrl($mermaid, '#70ff33');
+        return redirect()->to($url, 301);
     }
 }

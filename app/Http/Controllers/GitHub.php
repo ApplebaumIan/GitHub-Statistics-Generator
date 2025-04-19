@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
@@ -188,11 +189,14 @@ class GitHub extends Controller
         return null;
     }
 
-    public function serializeMermaidState(string $mermaid): string
+    public function serializeMermaidState(string $mermaid, $themeVars): string
     {
         $state = [
             'code' => $mermaid,
-            'mermaid' => ['theme' => 'default'],
+            'mermaid' => ['theme' => 'default',
+                'themeVariables'=> ['xyChart'=> $themeVars
+                ],
+                ]
         ];
         $json = json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         /* Returns
@@ -211,5 +215,39 @@ class GitHub extends Controller
         $urlSafe = strtr(rtrim($base64, '='), '+/', '-_');
 
         return $urlSafe;
+    }
+
+    public function mermaidUrl(string $mermaid, $barColor): string
+    {
+        $json = $this->serializeMermaidState($mermaid, [
+            'plotColorPalette' => '' . $barColor . '',
+        ]);
+        $encoded = $this->encodeMermaid($json);
+        $url = env('MERMAID','https://mermaid.ink')."/img/{$encoded}";
+        return $url;
+    }
+    public function getMermaid(array $chartData, $repo, $metric, $showDate=false): string
+    {
+        $labels = array_keys($chartData);//$chartData['labels'];
+        $values = array_values($chartData);
+//        dd($values);
+        $labelString = implode(', ', array_map(fn($l) => '"' . $l . '"', $labels));
+        $valueString = implode(', ', $values);
+        $maxY = max($values);
+        $date = "";
+        if ($showDate) {
+            $date = Carbon::now()->setTimezone('EST');
+            $date = $date->setTimezone('EST')->toDateTimeString();
+            $date = "– $date";
+        }
+
+        $mermaid = <<<EOT
+    xychart-beta
+    title "{$metric} — $repo $date"
+    x-axis [{$labelString}]
+    y-axis "{$metric}" 0 --> {$maxY}
+    bar [{$valueString}]
+    EOT;
+        return $mermaid;
     }
 }

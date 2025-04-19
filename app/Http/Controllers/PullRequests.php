@@ -75,26 +75,21 @@ class PullRequests extends GitHub
                 ],
             ],
         ];
-        $labels = $chartData['labels'];
-        $values = $chartData['datasets'][1]['data'];
-        $labelString = implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels));
-        $valueString = implode(', ', $values);
-        $maxY = max($values);
-        $date = Carbon::now()->setTimezone('EST');
-        $date = $date->setTimezone('EST')->toDateTimeString();
-        $mermaid = <<<EOT
-    xychart-beta
-    title "Commits — Example"
-    x-axis [{$labelString}]
-    y-axis "Commits" 0 --> {$maxY}
-    bar [{$valueString}]
-    EOT;
+        $data =
+          $chartData['datasets'][1]['data'];
+        arsort($data);
 
-        $json = $this->serializeMermaidState($mermaid);
-        $encoded = $this->encodeMermaid($json);
-        //        $encoded = urlencode($encoded);
-        $url = "https://mermaid.ink/img/{$encoded}";
-
+//        $data = $sort;
+        $mermaid = $this->getMermaid($data, $repo, "Pull Requests");
+        $url = $this->mermaidUrl($mermaid, '#33a3ff');
+//        dd($url);
         return redirect()->to($url, 301);
     }
+
+    /**
+     * @param array $chartData
+     * @param $repo
+     * @return string
+     */
+
 }

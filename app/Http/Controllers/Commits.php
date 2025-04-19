@@ -38,7 +38,7 @@ class Commits extends GitHub
             if ($response->status() === 401) {
                 // Handle 401 Unauthorized error
                 // ...
-                throw new GitHubTokenUnauthorized();
+                throw new GitHubTokenUnauthorized;
             }
             $commits = $response->json();
 
@@ -67,28 +67,8 @@ class Commits extends GitHub
         }
         arsort($new);
         $data = $new;
-        /*
-         * Chart settings and create image
-         */
-
-        [$new, $chart] = $this->makeChart($data, [255, 164, 0], $repo . ' number of Commits ', false, 10);
-
-        /*
-         * Output image to browser
-         */
-        $title = 'commits_';
-        $this->saveChart($chart, $title, $owner, $repo, $cacheKey);
-
-        //file_get_contents('/tmp/gorgeous_chart.png');//$graph->img;//$chartImage->encode('png')->getEncoded();
-
-        Cache::put($cacheKey, ['image' => Storage::get("images/commits_$owner-$repo.png")]);
-        $encoded = $chart->encode(new PngEncoder());
-
-        return response($encoded)
-            ->header('Content-Type', 'image/png')
-            ->header('Content-Disposition', 'inline; filename="commits.png"');
-        //        return $chartData;
+        $mermaid = $this->getMermaid($data, $repo, "Commits");
+        $url = $this->mermaidUrl($mermaid, '#ff9633');
+        return redirect()->to($url, 301);
     }
-
-
 }
