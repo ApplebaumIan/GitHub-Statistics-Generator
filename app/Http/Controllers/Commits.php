@@ -19,7 +19,7 @@ class Commits extends GitHub
             return $response;
         }
 
-        $data= $this->get($owner, $repo);
+        $data = $this->get($owner, $repo);
         $mermaid = $this->mermaid($data, $repo, 'Commits');
         $url = $this->mermaidUrl($mermaid, '#ff9633');
 
@@ -27,9 +27,8 @@ class Commits extends GitHub
     }
 
     /**
-     * @param $owner
-     * @param $repo
      * @return array[]
+     *
      * @throws GitHubTokenUnauthorized
      * @throws \Illuminate\Http\Client\ConnectionException
      * @throws \Throwable
@@ -75,13 +74,14 @@ class Commits extends GitHub
         $new = [];
         foreach ($data as $user => $value) {
             $r = Http::withToken(env('GITHUB'))->get("https://api.github.com/users/$user");
-            if (!empty($r)) {
+            if (! empty($r)) {
                 $user = isset($r['name']) ? $r['name'] : $user;
                 $new[$user] = $value;
             }
         }
         arsort($new);
         $data = $new;
+
         return $new;
     }
 }

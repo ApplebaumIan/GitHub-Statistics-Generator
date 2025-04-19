@@ -25,9 +25,8 @@ class Reviews extends GitHub
     }
 
     /**
-     * @param $owner
-     * @param $repo
      * @return array[]
+     *
      * @throws GitHubTokenUnauthorized
      * @throws \Illuminate\Http\Client\ConnectionException
      * @throws \Throwable
@@ -57,7 +56,7 @@ class Reviews extends GitHub
             $pullRequests = $response->json();
 
             foreach ($pullRequests as $pullRequest) {
-                $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls/" . $pullRequest['number'] . '/reviews');
+                $promises[] = Http::withToken(env('GITHUB'))->async()->get("https://api.github.com/repos/$owner/$repo/pulls/".$pullRequest['number'].'/reviews');
 
             }
 
@@ -95,6 +94,7 @@ class Reviews extends GitHub
         }
         arsort($new);
         $data = $new;
+
         return $new;
     }
 }

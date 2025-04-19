@@ -3,14 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Http\Controllers\Commits;
+use App\Http\Controllers\GitHub;
 use App\Http\Controllers\PullRequests;
 use App\Http\Controllers\Reviews;
 use Illuminate\Console\Command;
-use App\Http\Controllers\GitHub;
 
 class ProjectReport extends Command
 {
     protected $signature = 'project:report {repo}';
+
     protected $description = 'Generate a Markdown report of a GitHub project with Mermaid charts';
 
     public function handle(): int
@@ -18,7 +19,7 @@ class ProjectReport extends Command
         $repoPath = $this->argument('repo');
         [$owner, $repo] = explode('/', $repoPath);
 
-        $gitHub = new GitHub();
+        $gitHub = new GitHub;
 
         $pullRequestsData = PullRequests::get($owner, $repo);
         $reviewsData = Reviews::get($owner, $repo);
@@ -72,5 +73,4 @@ MD;
 
         return Command::SUCCESS;
     }
-
 }

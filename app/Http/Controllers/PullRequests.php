@@ -29,9 +29,6 @@ class PullRequests extends GitHub
     }
 
     /**
-     * @param $owner
-     * @param $repo
-     * @return mixed
      * @throws GitHubTokenUnauthorized
      * @throws \Illuminate\Http\Client\ConnectionException
      */
@@ -56,7 +53,7 @@ class PullRequests extends GitHub
                 $user = $pullRequest['user']['login'];
                 $state = $pullRequest['state'];
 
-                if (!isset($result[$user])) {
+                if (! isset($result[$user])) {
                     $result[$user] = [
                         'opened' => 0,
                         'closed' => 0,
@@ -70,7 +67,7 @@ class PullRequests extends GitHub
                 }
             }
             $page++;
-        } while (!empty($pullRequests));
+        } while (! empty($pullRequests));
 
         //        return $result;
 
@@ -96,6 +93,7 @@ class PullRequests extends GitHub
         $data =
             $chartData['datasets'][1]['data'];
         arsort($data);
+
         return $data;
     }
 
