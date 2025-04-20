@@ -5,7 +5,7 @@ environments:
     database: github-statistics
     memory: 1024
     cli-memory: 512
-    runtime: docker
+    runtime: 'php-8.4:al2'
     build:
       - 'composer install --no-dev'
       - 'php artisan event:cache'
