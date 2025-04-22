@@ -82,9 +82,9 @@ class GitHub extends Controller
         $labels = array_keys($chartData); // $chartData['labels'];
         $values = array_values($chartData);
         //        dd($values);
-        $labelString = implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels));
-        $valueString = implode(', ', $values);
-        $maxY = max($values ?? 0);
+        $labelString = $labels ? implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels)) : "No Data";
+        $valueString = $values ? implode(', ', $values) : 0;
+        $maxY = $values ? max($values) : 1;
         $date = '';
         if ($showDate) {
             $date = Carbon::now()->setTimezone('EST');
