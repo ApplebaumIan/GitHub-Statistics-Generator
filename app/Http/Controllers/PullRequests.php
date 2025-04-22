@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-
+use App\Jobs\GetPullRequestData;
 class PullRequests extends GitHub
 {
     // Cache TTLs in minutes
@@ -17,23 +17,23 @@ class PullRequests extends GitHub
     public function index(Request $request, $owner, $repo)
     {
         $chartCacheKey = "chart_pull-requests_{$owner}-{$repo}";
+        $forceRefresh = $request->query('force', false);
 
-        // Try to return cached chart first
-        if ($response = $this->respondWithCachedChart($chartCacheKey)) {
-            return $response;
+        // Dispatch job if not cached or force requested
+        if (!Cache::has($chartCacheKey) || $forceRefresh) {
+            GetPullRequestData::dispatch($owner, $repo);
         }
 
-        // Get PR data (cached or fresh)
-        $data = $this->get($owner, $repo);
+        // If cached, redirect to the chart immediately
+        if (Cache::has($chartCacheKey)) {
+            $mermaid = Cache::get($chartCacheKey);
+            $url = (new GitHub)->mermaidUrl($mermaid, '#33a3ff');
 
-        // Generate chart
-        $mermaid = $this->mermaid($data, $repo, 'Pull Requests');
-        $url = $this->mermaidUrl($mermaid, '#33a3ff');
+            return redirect()->to($url, 301);
+        }
 
-        // Cache the chart URL
-        Cache::put($chartCacheKey, $url, now()->addMinutes(self::CHART_CACHE_TTL));
-
-        return redirect()->to($url, 301);
+        // Placeholder response while job is processing
+        return response('Processing... Try again soon.', 202);
     }
 
     /**

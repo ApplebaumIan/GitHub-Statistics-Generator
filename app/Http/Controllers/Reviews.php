@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\GitHubTokenUnauthorized;
+use App\Jobs\GetReviewsData;
 use GuzzleHttp\Promise\Utils;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -20,23 +21,22 @@ class Reviews extends GitHub
     public function index(Request $request, $owner, $repo)
     {
         $chartCacheKey = "chart_reviews_{$owner}-{$repo}";
-
-        // Try to return cached chart first
-        if ($response = $this->respondWithCachedChart($chartCacheKey)) {
-            return $response;
+        $forceRefresh = $request->query('force', false);
+        // Dispatch job if not cached or force requested
+        if (!Cache::has($chartCacheKey) || $forceRefresh) {
+            GetReviewsData::dispatch($owner, $repo);
         }
 
-        // Get review data (cached or fresh)
-        $data = $this->get($owner, $repo);
+        // If cached, redirect to the chart immediately
+        if (Cache::has($chartCacheKey)) {
+            $mermaid = Cache::get($chartCacheKey);
+            $url = (new GitHub)->mermaidUrl($mermaid, '#33a3ff');
 
-        // Generate chart
-        $mermaid = $this->mermaid($data, $repo, 'Reviews');
-        $url = $this->mermaidUrl($mermaid, '#70ff33');
+            return redirect()->to($url, 301);
+        }
 
-        // Cache the chart URL
-        Cache::put($chartCacheKey, $url, now()->addMinutes(self::CHART_CACHE_TTL));
-
-        return redirect()->to($url, 301);
+        // Placeholder response while job is processing
+        return response('Processing... Try again soon.', 202);
     }
 
     /**
