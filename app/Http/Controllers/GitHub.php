@@ -84,7 +84,7 @@ class GitHub extends Controller
         //        dd($values);
         $labelString = implode(', ', array_map(fn ($l) => '"'.$l.'"', $labels));
         $valueString = implode(', ', $values);
-        $maxY = max($values);
+        $maxY = max($values ?? 0);
         $date = '';
         if ($showDate) {
             $date = Carbon::now()->setTimezone('EST');
