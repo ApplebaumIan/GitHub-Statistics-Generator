@@ -16,18 +16,27 @@ class TrackChartAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if (app()->runningInConsole()) {
+            return $next($request);
+        }
+
         $response = $next($request);
 
         // Only track for API image routes
         if ($request->is('api/*')) {
             $key = str_replace('/', '_', preg_replace('/^api\//', '', $request->path()));
-            ChartRequest::updateOrCreate(
+            try {
+                ChartRequest::updateOrCreate(
                 ['cache_key' => $key],
                 ['last_accessed_at' => now()]
             )->increment('hit_count');
+            } catch (\Exception $e) {
+                logger()->error($e);
+            }
 
         }
 
         return $response;
     }
+
 }
