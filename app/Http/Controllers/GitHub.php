@@ -3,12 +3,19 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 
 class GitHub extends Controller
 {
 
+    public function report(Request $request, $owner, $repo)
+    {
+        Artisan::call('project:report',["repo"=>"{$owner}/{$repo}"]);
+        return response(file_get_contents(storage_path("app/{$repo}-report.md")),200)->header('Content-Type', 'text/markdown');
+    }
 
     protected static function getTotalPagesFromHeaderLinks(string $headerLinks): int
     {
@@ -77,7 +84,7 @@ class GitHub extends Controller
         return $url;
     }
 
-    public function mermaid(array $chartData, $repo, $metric, $showDate = false): string
+    public function mermaid(array $chartData, $repo, $metric, $showDate = true): string
     {
         $labels = array_keys($chartData); // $chartData['labels'];
         $values = array_values($chartData);

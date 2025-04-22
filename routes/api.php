@@ -13,3 +13,4 @@ Route::get('/reviews/{owner}/{repo}', [\App\Http\Controllers\Reviews::class, 'im
 Route::get('/reviews/{owner}/{repo}/mermaid', [\App\Http\Controllers\Reviews::class, 'mermaid_text'])->name('mreviews');
 Route::get('/commits/{owner}/{repo}', [\App\Http\Controllers\Commits::class, 'image'])->name('commits');
 Route::get('/commits/{owner}/{repo}/mermaid', [\App\Http\Controllers\Commits::class, 'mermaid_text'])->name('mcommits');
+Route::get('report/{owner}/{repo}',[\App\Http\Controllers\GitHub::class, 'report'])->name('report');
