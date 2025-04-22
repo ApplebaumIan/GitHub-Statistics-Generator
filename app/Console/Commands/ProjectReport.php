@@ -6,28 +6,84 @@ use App\Http\Controllers\Commits;
 use App\Http\Controllers\GitHub;
 use App\Http\Controllers\PullRequests;
 use App\Http\Controllers\Reviews;
+use App\Jobs\GetCommitsData;
+use App\Jobs\GetPullRequestData;
+use App\Jobs\GetReviewsData;
+use App\Models\ChartRequest;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 class ProjectReport extends Command
 {
-    protected $signature = 'project:report {repo}';
+    protected $signature = 'project:report {repo?}';
 
     protected $description = 'Generate a Markdown report of a GitHub project with Mermaid charts';
 
     public function handle(): int
     {
         $repoPath = $this->argument('repo');
+        if ($repoPath === null) {
+            $repoPath = $this->choice(
+                'Choose a repository',
+                ChartRequest::all()
+                    ->sortBy('hit_count')
+                    ->pluck('cache_key')
+                    ->map(function ($key) {
+                        // Remove prefix (e.g., "pull-requests_", "reviews_", "commits_")
+                        $key = preg_replace('/^(pull-requests|commits|reviews)_/', '', $key);
+                        // Replace underscores with slashes
+                        return str_replace('_', '/', $key);
+                    })
+                    ->unique() // optional: remove duplicates across metric types
+                    ->values()
+                    ->toArray()
+            );
+        }
         [$owner, $repo] = explode('/', $repoPath);
 
         $gitHub = new GitHub;
 
-        $pullRequestsData = PullRequests::get($owner, $repo);
-        $reviewsData = Reviews::get($owner, $repo);
-        $commitsData = Commits::get($owner, $repo);
+//        $pullRequestsData = PullRequests::get($owner, $repo);
+//        $reviewsData = Reviews::get($owner, $repo);
+//        $commitsData = Commits::get($owner, $repo);
 
-        $pullRequestsMermaid = $gitHub->mermaid($pullRequestsData, $repo, 'Pull Requests');
-        $reviewsMermaid = $gitHub->mermaid($reviewsData, $repo, 'Reviews');
-        $commitsMermaid = $gitHub->mermaid($commitsData, $repo, 'Commits');
+        $repoKey = str_replace('-', '_', $repo); // safer for cache keys
+
+        $cacheKeys = [
+            'pull_requests' => "chart_pull-requests_{$owner}-{$repo}",
+            'reviews' => "chart_reviews_{$owner}-{$repo}",
+            'commits' => "chart_commits_{$owner}-{$repo}",
+        ];
+
+// Dispatch
+        GetPullRequestData::dispatch($owner, $repo);
+        GetReviewsData::dispatch($owner, $repo);
+        GetCommitsData::dispatch($owner, $repo);
+
+// Show progress bar
+        $this->info("Waiting for jobs to complete...");
+        $bar = $this->output->createProgressBar(count($cacheKeys));
+        $bar->start();
+
+        $results = [];
+
+        while (count($results) < count($cacheKeys)) {
+            foreach ($cacheKeys as $label => $key) {
+                if (!array_key_exists($label, $results) && Cache::has($key)) {
+                    $results[$label] = Cache::get($key);
+                    $bar->advance();
+                }
+            }
+            usleep(500000); // wait 0.5s before polling again
+        }
+
+        $bar->finish();
+        $this->newLine(2);
+
+        $pullRequestsMermaid = $results['pull_requests'];
+        $reviewsMermaid = $results['reviews'];
+        $commitsMermaid = $results['commits'];
+
 
         $markdown = <<<MD
 # {$repoPath}
