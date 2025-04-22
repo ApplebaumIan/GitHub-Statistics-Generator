@@ -8,13 +8,41 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\GetPullRequestData;
+use PHPUnit\Event\TestData\TestData;
+
 class PullRequests extends GitHub
 {
     // Cache TTLs in minutes
     const PR_CACHE_TTL = 60; // 1 hour
     const CHART_CACHE_TTL = 60; // 1 hour
 
-    public function index(Request $request, $owner, $repo)
+    public function mermaid_text(Request $request ,$owner, $repo){
+        $chartCacheKey = "chart_pull-requests_{$owner}-{$repo}";
+        $forceRefresh = $request->query('force', false);
+
+        // Dispatch job if not cached or force requested
+        if (!Cache::has($chartCacheKey) || $forceRefresh) {
+            GetPullRequestData::dispatch($owner, $repo);
+        }
+
+        // If cached, redirect to the chart immediately
+        if (Cache::has($chartCacheKey)) {
+            $mermaid = Cache::get($chartCacheKey);
+            $text = <<<MD
+            ---
+            config:
+                themeVariables:
+                    xyChart:
+                        plotColorPalette: "#33a3ff"
+            ---
+            {$mermaid}
+            MD;
+
+            return response($text,200)->header('Content-Type', 'text/plain');
+        }
+        return response('processing comeback later',202);
+    }
+    public function image(Request $request, $owner, $repo)
     {
         $chartCacheKey = "chart_pull-requests_{$owner}-{$repo}";
         $forceRefresh = $request->query('force', false);

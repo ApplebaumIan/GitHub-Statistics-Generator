@@ -17,8 +17,33 @@ class Reviews extends GitHub
     const PR_CACHE_TTL = 120; // 2 hours
     const USER_CACHE_TTL = 1440; // 24 hours
     const CHART_CACHE_TTL = 60; // 1 hour
+    public function mermaid_text(Request $request ,$owner, $repo){
+        $chartCacheKey = "chart_reviews_{$owner}-{$repo}";
+        $forceRefresh = $request->query('force', false);
 
-    public function index(Request $request, $owner, $repo)
+        // Dispatch job if not cached or force requested
+        if (!Cache::has($chartCacheKey) || $forceRefresh) {
+            GetReviewsData::dispatch($owner, $repo);
+        }
+
+        // If cached, redirect to the chart immediately
+        if (Cache::has($chartCacheKey)) {
+            $mermaid = Cache::get($chartCacheKey);
+            $text = <<<MD
+            ---
+            config:
+                themeVariables:
+                    xyChart:
+                        plotColorPalette: "#70ff33"
+            ---
+            {$mermaid}
+            MD;
+
+            return response($text,200)->header('Content-Type', 'text/plain');
+        }
+        return response('processing comeback later',202);
+    }
+    public function image(Request $request, $owner, $repo)
     {
         $chartCacheKey = "chart_reviews_{$owner}-{$repo}";
         $forceRefresh = $request->query('force', false);

@@ -24,16 +24,18 @@ class TrackChartAccess
 
         // Only track for API image routes
         if ($request->is('api/*')) {
-            $key = str_replace('/', '_', preg_replace('/^api\//', '', $request->path()));
+            $key = preg_replace('/^api\//', '', $request->path());
+            $key = preg_replace('#/mermaid$#', '', $key);
+            $key = str_replace('/', '_', $key);
+
             try {
                 ChartRequest::updateOrCreate(
-                ['cache_key' => $key],
-                ['last_accessed_at' => now()]
-            )->increment('hit_count');
+                    ['cache_key' => $key],
+                    ['last_accessed_at' => now()]
+                )->increment('hit_count');
             } catch (\Exception $e) {
                 logger()->error($e);
             }
-
         }
 
         return $response;
