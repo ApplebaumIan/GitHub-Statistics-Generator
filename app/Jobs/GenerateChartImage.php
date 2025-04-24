@@ -37,9 +37,9 @@ class GenerateChartImage implements ShouldQueue
     public function handle(): void
     {
         match ($this->type) {
-            'pull-requests' => (new PullRequests)->image(request(), $this->owner, $this->repo),
-            'commits' => (new Commits)->image(request(), $this->owner, $this->repo),
-            'reviews' => (new Reviews)->image(request(), $this->owner, $this->repo),
+            'pull-requests' => (new PullRequests)->mermaid(request(), $this->owner, $this->repo),
+            'commits' => (new Commits)->mermaid(request(), $this->owner, $this->repo),
+            'reviews' => (new Reviews)->mermaid(request(), $this->owner, $this->repo),
             default => null,
         };
     }
