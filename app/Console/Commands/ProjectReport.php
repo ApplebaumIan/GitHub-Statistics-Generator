@@ -56,7 +56,11 @@ class ProjectReport extends Command
         ];
 
 // Dispatch
-        GetPullRequestData::dispatch($owner, $repo);
+        $pullRequestsLockKey = "lock_chart_pull-requests_{$owner}_{$repo}";
+        if(Cache::lock($pullRequestsLockKey, 60)->get()) {
+            GetPullRequestData::dispatch($owner, $repo);
+        }
+
         GetReviewsData::dispatch($owner, $repo);
 
         $commitsLockKey = "lock_chart_commits_{$owner}_{$repo}";
