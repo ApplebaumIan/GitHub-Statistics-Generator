@@ -23,7 +23,10 @@ class Reviews extends GitHub
 
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
-            GetReviewsData::dispatch($owner, $repo);
+            $lockKey = "lock_chart_reviews_{$owner}_{$repo}";
+            if (Cache::lock($lockKey, 60)->get()) {
+                GetReviewsData::dispatch($owner, $repo);
+            }
         }
 
         // If cached, redirect to the chart immediately
@@ -49,7 +52,10 @@ class Reviews extends GitHub
         $forceRefresh = $request->query('force', false);
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
-            GetReviewsData::dispatch($owner, $repo);
+            $lockKey = "lock_chart_reviews_{$owner}_{$repo}";
+            if (Cache::lock($lockKey, 60)->get()) {
+                GetReviewsData::dispatch($owner, $repo);
+            }
         }
 
         // If cached, redirect to the chart immediately

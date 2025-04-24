@@ -61,7 +61,10 @@ class ProjectReport extends Command
             GetPullRequestData::dispatch($owner, $repo);
         }
 
-        GetReviewsData::dispatch($owner, $repo);
+        $reviewsLockKey = "lock_chart_reviews_{$owner}_{$repo}";
+        if(Cache::lock($reviewsLockKey, 60)->get()) {
+            GetReviewsData::dispatch($owner, $repo);
+        }
 
         $commitsLockKey = "lock_chart_commits_{$owner}_{$repo}";
         // Only dispatch if we're allowed to acquire the lock (non-blocking)
