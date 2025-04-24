@@ -58,8 +58,12 @@ class ProjectReport extends Command
 // Dispatch
         GetPullRequestData::dispatch($owner, $repo);
         GetReviewsData::dispatch($owner, $repo);
-        GetCommitsData::dispatch($owner, $repo);
 
+        $commitsLockKey = "lock_chart_commits_{$owner}_{$repo}";
+        // Only dispatch if we're allowed to acquire the lock (non-blocking)
+        if (Cache::lock($commitsLockKey, 60)->get()) {
+            GetCommitsData::dispatch($owner, $repo);
+        }
 // Show progress bar
         $this->info("Waiting for jobs to complete...");
         $bar = $this->output->createProgressBar(count($cacheKeys));

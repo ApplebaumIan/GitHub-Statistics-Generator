@@ -22,7 +22,12 @@ class Commits extends GitHub
 
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
-            GetCommitsData::dispatch($owner, $repo);
+            $lockKey = "lock_chart_commits_{$owner}_{$repo}";
+
+// Only dispatch if we're allowed to acquire the lock (non-blocking)
+            if (Cache::lock($lockKey, 60)->get()) {
+                GetCommitsData::dispatch($owner, $repo);
+            }
         }
 
         // If cached, redirect to the chart immediately
@@ -49,7 +54,12 @@ class Commits extends GitHub
 
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
-            GetCommitsData::dispatch($owner, $repo);
+            $lockKey = "lock_chart_commits_{$owner}_{$repo}";
+
+// Only dispatch if we're allowed to acquire the lock (non-blocking)
+            if (Cache::lock($lockKey, 60)->get()) {
+                GetCommitsData::dispatch($owner, $repo);
+            }
         }
 
         // If cached, redirect to the chart immediately
