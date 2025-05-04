@@ -9,7 +9,7 @@ environments:
     build:
       - 'composer install --no-dev'
       - 'php artisan event:cache'
-      - 'php artisan storage:link'
+#      - 'php artisan storage:link'
     deploy:
       - 'php artisan migrate --force'
       # - 'npm ci && npm run build && rm -rf node_modules'
