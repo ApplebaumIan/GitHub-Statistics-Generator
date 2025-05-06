@@ -23,8 +23,13 @@ class PullRequests extends GitHub
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
             $lockKey = "lock_chart_pull-requests_{$owner}_{$repo}";
-            if (Cache::lock($lockKey, 60)->get()) {
+            $lock = Cache::lock($lockKey, 60);
+            if ($lock->get()) {
+                try {
                 GetPullRequestData::dispatch($owner, $repo);
+                } finally {
+                    $lock->release();
+                }
             }
         }
 
@@ -53,8 +58,13 @@ class PullRequests extends GitHub
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
             $lockKey = "lock_chart_pull-requests_{$owner}_{$repo}";
-            if (Cache::lock($lockKey, 60)->get()) {
-                GetPullRequestData::dispatch($owner, $repo);
+            $lock = Cache::get($lockKey, 60);
+            if ($lock->get()) {
+                try {
+                    GetPullRequestData::dispatch($owner, $repo);
+                } finally {
+                    $lock->release();
+                }
             }
         }
 

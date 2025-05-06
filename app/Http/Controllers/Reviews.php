@@ -24,8 +24,13 @@ class Reviews extends GitHub
         // Dispatch job if not cached or force requested
         if (!Cache::has($chartCacheKey) || $forceRefresh) {
             $lockKey = "lock_chart_reviews_{$owner}_{$repo}";
-            if (Cache::lock($lockKey, 60)->get()) {
+            $lock = Cache::lock($lockKey, 60);
+            if ($lock->get()) {
+                try {
                 GetReviewsData::dispatch($owner, $repo);
+                } finally {
+                    $lock->release();
+                }
             }
         }
 

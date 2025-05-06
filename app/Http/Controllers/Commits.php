@@ -25,8 +25,15 @@ class Commits extends GitHub
             $lockKey = "lock_chart_commits_{$owner}_{$repo}";
 
 // Only dispatch if we're allowed to acquire the lock (non-blocking)
-            if (Cache::lock($lockKey, 60)->get()) {
-                GetCommitsData::dispatch($owner, $repo);
+            $lock = Cache::lock($lockKey, 60);
+
+            if ($lock->get()) {
+                try {
+                    GetCommitsData::dispatch($owner, $repo);
+                } finally {
+                    // free it so the job can grab it later
+                    $lock->release();
+                }
             }
         }
 
